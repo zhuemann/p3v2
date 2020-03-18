@@ -89,7 +89,6 @@ void* allocHeap(int size) {
     if (size > allocsize) {
         return NULL;
     }
-    printf("%s%d%s", "heap allocation call made of size: ", size,"\n");
     if (lastAllocMade == NULL) {
 	lastAllocMade = heapStart;
     }
@@ -108,159 +107,65 @@ void* allocHeap(int size) {
     //while you can't find a free block keep going through the blocks looking at headers till you
     //find a free block you can use that also large enough to fit everything
     blockHeader *currentAllocatedBlock = lastAllocMade;
-    // while the current block is filled or to small, look for next block
-    
-    /*printf("%s", "Initial contions into while loop\n");
-    printf("%s%d%s%d%s", "free block space: ", (currentAllocatedBlock->size_status/8)*8 , " paddedSize: ", paddedSize, "\n");
-    printf("%s%d%s","first condition: ", (currentAllocatedBlock->size_status & 1) != 0 , "\n");
-    printf("%s%d%s","second condition: ", (currentAllocatedBlock->size_status/8)*8 < paddedSize  , "\n");
-     */ //delete insidde theses
+    // while the current block is filled or to small, look for next block 
     int counter = 0;
     while( ( (currentAllocatedBlock->size_status & 1) != 0 ) || ( (currentAllocatedBlock->size_status/8)*8 < paddedSize ) )  {
-    	if ( (currentAllocatedBlock->size_status/8)*8 < paddedSize) {
-	    printf("%s", "not a big enough block, check next block\n");
-	}
-	if ( (currentAllocatedBlock->size_status & 1) != 0) {
-            printf("%s", "block no free, check next block\n");
-	}
-	
-	counter++;
- 	if( counter > 5) {
+    	
+	//if we have already been through the heap twice return null	
+ 	if( counter > 2) {
 		return NULL;
 	}
+
 	int takenSize = currentAllocatedBlock->size_status / 8;
         takenSize = takenSize * 8;
-        currentAllocatedBlock = (blockHeader*)((void*)currentAllocatedBlock + takenSize);
 
-        if (( (void*)currentAllocatedBlock + takenSize) >(void*)memoryEnd) {
-               return NULL;
+        currentAllocatedBlock = (blockHeader*)((void*)currentAllocatedBlock + takenSize);
+	//checks to see if we have been through the space if we have change counter and go back to beginning
+        if (( (void*)currentAllocatedBlock + takenSize) > (void*)memoryEnd) {
+
+           currentAllocatedBlock = NULL;
+	   counter++;
+	   currentAllocatedBlock = heapStart;
         }
     }
 
     //the block that gets past the last while look will aways be free and large enough to allocate in memeory 
     blockHeader *freeBlock = currentAllocatedBlock;
 
-    //Here we check one more time that it is in fact free but it should always be the case unless first alloc
+    //Here we check one more time that it is in fact free but it should always be the case
     if ( (freeBlock->size_status & 1) == 0 ) {
 	//gets the total p bit of the free block
         int freeSize = freeBlock->size_status / 8;
         freeSize = freeSize * 8;
-        //create and change footer first of the newly created free block
-        blockHeader *footer = (blockHeader*) ((void*)freeBlock + freeSize - 4);//TODO: do i need -4, I think so
-	//give the footer the correct size, its a bits will be /zerozero
-        footer->size_status = freeSize - paddedSize;
+	blockHeader *nextBlockHeader = (void*)freeBlock + (paddedSize);
+	//if the next block is free we need to split the current space into a free block and filled block
+	if( ( nextBlockHeader->size_status & 1) == 0) {
+            //create and change footer first of the newly created free block
+            blockHeader *footer = (blockHeader*) ((void*)freeBlock + freeSize - 4);
 
-        blockHeader *newFreeHeader = ((void*)freeBlock + paddedSize); //check if block behind me is allocated
+	    //give the footer the correct size, its a bits will be /zerozero
+            footer->size_status = freeSize - paddedSize;
+	
+            blockHeader *newFreeHeader = ((void*)freeBlock + paddedSize); //check if block behind me is allocated
         
-        newFreeHeader->size_status = freeBlock->size_status - paddedSize; //changes the p bit of the new free header
+            newFreeHeader->size_status = freeBlock->size_status - paddedSize; //changes the p bit of the new free header
+	    //freeBlock->size_status = freeBlock->size_status + 1;
+        }
 
+	//if the next block is taken we just need to change the a bits of the next block
+        if( ( nextBlockHeader->size_status & 1) == 1) {
+
+	    nextBlockHeader->size_status = ((nextBlockHeader->size_status/8)*8) + 3;
+
+	}
+	
         //change the header so save off this block
         freeBlock->size_status = paddedSize + 3;
 	
 	//update the last allocmade to be the one you are currently making
         lastAllocMade = freeBlock;
-	dumpMem();
         return ((void*)freeBlock) + 4;
     }
-	dumpMem(); 
- 
-
-
-
-
-
-/*
-    //will only be true if its the first allocation
-    if ( (lastAllocMade->size_status & 1) == 0 ) {
-        printf("%s", "lastAllocMade: ");
-        printf("%p", lastAllocMade);
-        printf("%s", "\n");
-	
-	int freeSize = lastAllocMade->size_status / 8;
-	freeSize = freeSize * 8;
-//        printf("%s", "freeSize: ");
-  //      printf("%d", freeSize);
-    //    printf("%s", "\n");
-	printf("%s%d%s","paddedSize: ",paddedSize,"\n");
-	printf("%s%d%s","allocsize: ",allocsize,"\n");
-	//create and change footer first
-	//int *footerLocation = ((void*)heapStart + freeSize - 4);
-        blockHeader *footer = (blockHeader*) ((void*)heapStart + freeSize - 4);
-        footer->size_status = freeSize - paddedSize;
-
-	blockHeader *newFreeHeader = ((void*)lastAllocMade + paddedSize); //check if block behind me is allocated
-  
-	newFreeHeader->size_status = lastAllocMade->size_status - paddedSize;
-	
-	//change the header so save off this block
-        lastAllocMade->size_status = paddedSize + 3;//really just a 1 if not first allocation
-	//This is going to be the header used for the next free block
-	
-	//blockHeader *newFreeHeader = lastAllocMade + paddedSize; //check if block behind me is allocated
-        printf("%s", "newFreeHeader: ");	
-	printf("%p",newFreeHeader);
-        printf("%s", "\n");
-
-
-	printf("%s", "footerloaction: ");
-        printf("%p", footer);
-        printf("%s", "\n");
-	lastAllocMade = lastAllocMade;
-	return ((void*)lastAllocMade) + 4;
-    }
-
-    //while you can't find a free block keep going through the blocks looking at headers till you
-    //find a free block you can use that also large enough to fit everything
-    blockHeader *currentAllocatedBlock = lastAllocMade;
-    while( ( (currentAllocatedBlock->size_status & 1) != 0 ) || ( (currentAllocatedBlock->size_status/8) >= paddedSize ) )  {
-    // while(  (currentAllocatedBlock->size_status & 1) != 0 )  {
-	
-
-	int takenSize = lastAllocMade->size_status / 8;
-        takenSize = takenSize * 8;
-
-	currentAllocatedBlock = ((void*)currentAllocatedBlock + takenSize);
-	if ( (int)((void*)currentAllocatedBlock + takenSize) > allocsize ) {
-	       return NULL;
-	}	       
-    }
-
-    blockHeader *freeBlock = currentAllocatedBlock;
-    printf("%s%p%s","freeBlock: ",freeBlock,"\n");
-
-    //check size of freeblock
-    //should be before the while loop relaly
-
-    if ( (freeBlock->size_status & 1) == 0 ) {
-        int freeSize = freeBlock->size_status / 8;
-        freeSize = freeSize * 8;
-
-        printf("%s%d%s","paddedSize: ",paddedSize,"\n");
-        printf("%s%d%s","allocsize: ",allocsize,"\n");
-        //create and change footer first
-        //int *footerLocation = ((void*)heapStart + freeSize - 4);
-        blockHeader *footer = (blockHeader*) ((void*)freeBlock + freeSize - 4);//TODO: do i need -4 i dont think I do
-        footer->size_status = freeSize - paddedSize;
-
-        blockHeader *newFreeHeader = ((void*)freeBlock + paddedSize); //check if block behind me is allocated
-
-        newFreeHeader->size_status = freeBlock->size_status - paddedSize;
-
-        //change the header so save off this block
-        freeBlock->size_status = paddedSize + 3;
-
-        printf("%s", "newFreeHeader: ");
-        printf("%p",newFreeHeader);
-        printf("%s", "\n");
-
-
-        printf("%s", "footerloaction: ");
-        printf("%p", footer);
-        printf("%s", "\n");
-        lastAllocMade = freeBlock;
-        return ((void*)freeBlock) + 4;
-    }
-*/
 
     return NULL;
 } 
@@ -306,83 +211,61 @@ int freeHeap(void *ptr) {
     if ( ( freeBlockHeader->size_status & 1) == 0) {
 	return -1;
     }
-    printf("%s","\n");
-    printf("%s%p%s", "ptr to be freed: ", ptr, "\n");
-    printf("%s%p%s", "ptr head to be freed: ", freeBlockHeader, "\n");
-    
- 
-    printf("%s%d%s", "freeblockHeader sizeStatus: ", freeBlockHeader->size_status, "\n");
     
     int sizeOfNewFreeBlock = (freeBlockHeader->size_status / 8 ) * 8;
 
-    printf("%s%d%s","sizeOfNewFreeBlock: ", sizeOfNewFreeBlock, "\n");
-
     blockHeader *nextBlockHeader = (void*)ptr + sizeOfNewFreeBlock - 4 ;
-    //blockHeader *nextBlockFooter = (void*)nextBlockHeader + ((nextBlockHeader->size_status/8)*8) - 4;
 
-    printf("%s%d%s","next block header status: ", nextBlockHeader->size_status, "\n");
-    printf("%s%p%s","next blockheader pointer: ", nextBlockHeader, "\n");
-
-    //printf("%s%p%s","next blockfooter pointer: ", nextBlockFooter, "\n");
-    printf("%s%d%s","nextBlockHeader_Size_status: ", nextBlockHeader->size_status, "\n");
- 
-    if ( ( ( nextBlockHeader->size_status%8 ) % 2) == 1) {
-
-    	blockHeader *newFreeBlockFooter = (void*)ptr + sizeOfNewFreeBlock - 8; //-8
+    //if the next block and previous block is already taken then fill the blick and update the footer   
+    if ( ( ( ( nextBlockHeader->size_status%8 ) % 2) == 1) &&( (freeBlockHeader->size_status % 8) >= 2) ) {
+	//creats next block footer
+    	blockHeader *newFreeBlockFooter = (void*)ptr + sizeOfNewFreeBlock - 8;
+	//upddates the new block size
     	newFreeBlockFooter->size_status = sizeOfNewFreeBlock;
-	printf("%s", "simply make footer and change bit");
+	//update next block header
 	nextBlockHeader->size_status = nextBlockHeader->size_status - 2 ; //mark next header a bits to no prvious block
+	//update the new free blocks a bit
+	freeBlockHeader->size_status = freeBlockHeader->size_status -1;  //change the currents block  a bits to be free
 
     }
+    //keeps track of if a coalsce has already happened
+    int hasBeenCoalescedBack = 0;
 
-    printf("%s%d%s","nextBlockHeader_Size_status: ", nextBlockHeader->size_status, "\n");
- 
-    if ( ( ( nextBlockHeader->size_status%8)%2 ) == 0) {
+    //if the next block is free you need to coalecse backwards
+    if ( ( ( nextBlockHeader->size_status % 8) % 2 ) == 0) {
 
-	printf("%s","inside coalesce check");
-	//nextBlockHeader->size_status = nextBlockHeader->size_status - 2; //subtract 2 since we no longer have a blcok in front
-	//printf("%s%d%s","next block header status: ", nextBlockHeader->size_status, "\n");
-	printf("%s%p%s","Next blockHeader: ", nextBlockHeader, "\n");
+	//gets the next blocks footer which will be the new combined footer	
+	blockHeader *nextBlockFooter = (void*)nextBlockHeader + ((nextBlockHeader->size_status/8)*8) - 4;
+	//updates the value of the footer for the new combined block	
+	nextBlockFooter->size_status = nextBlockFooter->size_status + sizeOfNewFreeBlock ; 
+	//changes the freeblockHeader to have the correct a bit for its own status
+	freeBlockHeader->size_status = (nextBlockFooter->size_status/8)*8 + (freeBlockHeader->size_status % 8) - 1; 
 	
-	blockHeader *nextBlockFooter = (void*)nextBlockHeader + ((nextBlockHeader->size_status/8)*8) - 4; //add -4
-        printf("%s%p%s","footer address for new size of free block: ", nextBlockFooter, "\n");	
-	nextBlockFooter->size_status = nextBlockFooter->size_status + sizeOfNewFreeBlock - 4;
-        printf("%s%d%s","Size put in footer: ", nextBlockFooter->size_status, "\n");
- 
-	nextBlockHeader->size_status = (nextBlockHeader->size_status/8)*8;
-
-	freeBlockHeader->size_status = (nextBlockFooter->size_status/8)*8 + freeBlockHeader->size_status;
-	printf("%s%p%s","Header address for coalesced block: ", freeBlockHeader, "\n");
-
-        printf("%s", "leaving coalesce check\n");
+	hasBeenCoalescedBack++;
     }
-
-    //this will coalesce the block forward if there is a free block there
+	
+    //if the previous block is free you need to coalecse forwards 
     if ((freeBlockHeader->size_status % 8) < 2) {
-	    printf("%s" ,"\nwe gotta do a coalesce forward\n");
-	    blockHeader *previousFooter = (void*)freeBlockHeader - 4;
-	    blockHeader *previousHeader = (void*)previousFooter - previousFooter->size_status ;
-            printf("%s%p%s","address of prvious header: ", previousHeader, "\n");
-
-	    previousHeader->size_status = previousHeader->size_status + ((freeBlockHeader->size_status/8)*8);
-	    
-	    //freeBlockHeader->size_status = freeBlockHeader->size_status - 2; //removing previous connection	
-	    //freeBlockHeader = NULL;
-	   // blockHeader *newFreeBlockFooter = (void*)ptr + sizeOfNewFreeBlock - 8;
-	    //newFreeBlockFooter->size_status = sizeOfNewFreeBlock + previousFooter->size_status;
-
-	    printf("%s","leaving coalesce forward");
+	//change the next block header so its previous bit is zero or freed
+	blockHeader *nextHeader = (void*)freeBlockHeader + (freeBlockHeader->size_status/8)*8;
+	//if (( (void*)nextHeader) < (void*)memoryEnd) {
+        if ( (nextHeader->size_status & 1) == 1) {
+	    nextHeader->size_status = ((nextHeader->size_status/8)*8) + 1;
 	}
+	blockHeader *previousFooter = (void*)freeBlockHeader - 4;
 
-	    
-    //}
-   
-    //printf("%p%s",newFreeBlockFooter,"\n");
-    //printf("%p%s",nextBlockFooter,"\n");
-    //
-    freeBlockHeader->size_status = freeBlockHeader->size_status - 1; //changes a bits to be free
+	blockHeader *previousHeader = (void*)previousFooter - previousFooter->size_status + 4;
 
-    dumpMem();
+	previousHeader->size_status = previousHeader->size_status + ((freeBlockHeader->size_status/8)*8);
+
+	blockHeader *newFreeBlockFooter = (void*) previousHeader + ((previousHeader->size_status/8)*8) - 4;
+	newFreeBlockFooter->size_status = ((previousHeader->size_status/8)*8);
+ 
+	if(hasBeenCoalescedBack == 0) {
+	    freeBlockHeader->size_status = freeBlockHeader->size_status -1;  //change the currents block  a bits to be free
+	}
+    }
+    
     return 0;
 } 
  
@@ -495,7 +378,7 @@ void dumpMem() {
     fprintf(stdout, "No.\tStatus\tPrev\tt_Begin\t\tt_End\t\tt_Size\n");
     fprintf(stdout, "-------------------------------------------------\
                     --------------------------------\n");
-  
+    int breaker = 0; 
     while (current->size_status != 1) {
         t_begin = (char*)current;
         t_size = current->size_status;
@@ -529,6 +412,11 @@ void dumpMem() {
     
         current = (blockHeader*)((char*)current + t_size);
         counter = counter + 1;
+	breaker++;
+	if (breaker > 15) {
+	    printf("%s","exiting while loop");
+	    current->size_status = 1;
+	}
     }
 
     fprintf(stdout, "---------------------------------------------------\

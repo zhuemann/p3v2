@@ -4,7 +4,26 @@
 // Posting or sharing this file is prohibited, including any changes/additions.
 //
 ///////////////////////////////////////////////////////////////////////////////
- 
+////////////////////////////////////////////////////////////////////////////////
+// Main File:        heapAlloc.c
+// This File:        heapAlloc.c
+// Semester:         CS 354 Spring 2020
+//
+// Author:           Zach Huemann
+// Email:            zhuemann@wisc.eddu
+// CS Login:         huemann
+//
+/////////////////////////// OTHER SOURCES OF HELP //////////////////////////////
+//                   fully acknowledge and credit all sources of help,
+//                   other than Instructors and TAs.
+//
+// Persons:          Identify persons by name, relationship to you, and email.
+//                   Describe in detail the the ideas and help they provided.
+//
+// Online sources:   avoid web searches to solve your problems, but if you do
+//                   search, be sure to include Web URLs and description of 
+//                   of any information you find.
+//////////////////////////// 80 columns wide /////////////////////////////////// 
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -104,12 +123,14 @@ void* allocHeap(int size) {
         paddedSize = size + padding;
     }
     
-    //while you can't find a free block keep going through the blocks looking at headers till you
+    //while you can't find a free block keep going through the blocks looking 
+    //at headers till you
     //find a free block you can use that also large enough to fit everything
     blockHeader *currentAllocatedBlock = lastAllocMade;
     // while the current block is filled or to small, look for next block 
     int counter = 0;
-    while( ( (currentAllocatedBlock->size_status & 1) != 0 ) || ( (currentAllocatedBlock->size_status/8)*8 < paddedSize ) )  {
+    while( ( (currentAllocatedBlock->size_status & 1) != 0 ) || 
+		    ( (currentAllocatedBlock->size_status/8)*8 < paddedSize ) ){
     	
 	//if we have already been through the heap twice return null	
  	if( counter > 2) {
@@ -120,7 +141,8 @@ void* allocHeap(int size) {
         takenSize = takenSize * 8;
 
         currentAllocatedBlock = (blockHeader*)((void*)currentAllocatedBlock + takenSize);
-	//checks to see if we have been through the space if we have change counter and go back to beginning
+	//checks to see if we have been through the space if we have change counter 
+	//and go back to beginning
         if (( (void*)currentAllocatedBlock + takenSize) > (void*)memoryEnd) {
 
            currentAllocatedBlock = NULL;
@@ -129,27 +151,29 @@ void* allocHeap(int size) {
         }
     }
 
-    //the block that gets past the last while look will aways be free and large enough to allocate in memeory 
+    //the block that gets past the last while look will aways be free and large
+    //enough to allocate in memeory 
     blockHeader *freeBlock = currentAllocatedBlock;
 
-    //Here we check one more time that it is in fact free but it should always be the case
+    //Here we check one more time that it is in fact free but it
+    //should always be the case
     if ( (freeBlock->size_status & 1) == 0 ) {
 	//gets the total p bit of the free block
         int freeSize = freeBlock->size_status / 8;
         freeSize = freeSize * 8;
 	blockHeader *nextBlockHeader = (void*)freeBlock + (paddedSize);
-	//if the next block is free we need to split the current space into a free block and filled block
+	//if the next block is free we need to split the current space into a free 
+	//block and filled block
 	if( ( nextBlockHeader->size_status & 1) == 0) {
             //create and change footer first of the newly created free block
             blockHeader *footer = (blockHeader*) ((void*)freeBlock + freeSize - 4);
 
 	    //give the footer the correct size, its a bits will be /zerozero
             footer->size_status = freeSize - paddedSize;
-	
-            blockHeader *newFreeHeader = ((void*)freeBlock + paddedSize); //check if block behind me is allocated
-        
-            newFreeHeader->size_status = freeBlock->size_status - paddedSize; //changes the p bit of the new free header
-	    //freeBlock->size_status = freeBlock->size_status + 1;
+            //check if block behind me is allocate	
+            blockHeader *newFreeHeader = ((void*)freeBlock + paddedSize);
+            //changes the p bit of the new free header
+            newFreeHeader->size_status = freeBlock->size_status - paddedSize;
         }
 
 	//if the next block is taken we just need to change the a bits of the next block
@@ -216,17 +240,18 @@ int freeHeap(void *ptr) {
 
     blockHeader *nextBlockHeader = (void*)ptr + sizeOfNewFreeBlock - 4 ;
 
-    //if the next block and previous block is already taken then fill the blick and update the footer   
-    if ( ( ( ( nextBlockHeader->size_status%8 ) % 2) == 1) &&( (freeBlockHeader->size_status % 8) >= 2) ) {
+    //if the next block and previous block is already taken 
+    //then fill the blick and update the footer   
+    if ( ( ( ( nextBlockHeader->size_status%8 ) % 2) == 1) &&
+		    ( (freeBlockHeader->size_status % 8) >= 2) ) {
 	//creats next block footer
     	blockHeader *newFreeBlockFooter = (void*)ptr + sizeOfNewFreeBlock - 8;
 	//upddates the new block size
     	newFreeBlockFooter->size_status = sizeOfNewFreeBlock;
 	//update next block header
-	nextBlockHeader->size_status = nextBlockHeader->size_status - 2 ; //mark next header a bits to no prvious block
+	nextBlockHeader->size_status = nextBlockHeader->size_status - 2 ;
 	//update the new free blocks a bit
-	freeBlockHeader->size_status = freeBlockHeader->size_status -1;  //change the currents block  a bits to be free
-
+	freeBlockHeader->size_status = freeBlockHeader->size_status -1; 
     }
     //keeps track of if a coalsce has already happened
     int hasBeenCoalescedBack = 0;
@@ -235,19 +260,23 @@ int freeHeap(void *ptr) {
     if ( ( ( nextBlockHeader->size_status % 8) % 2 ) == 0) {
 
 	//gets the next blocks footer which will be the new combined footer	
-	blockHeader *nextBlockFooter = (void*)nextBlockHeader + ((nextBlockHeader->size_status/8)*8) - 4;
+	blockHeader *nextBlockFooter = (void*)nextBlockHeader + 
+		((nextBlockHeader->size_status/8)*8) - 4;
 	//updates the value of the footer for the new combined block	
 	nextBlockFooter->size_status = nextBlockFooter->size_status + sizeOfNewFreeBlock ; 
 	//changes the freeblockHeader to have the correct a bit for its own status
-	freeBlockHeader->size_status = (nextBlockFooter->size_status/8)*8 + (freeBlockHeader->size_status % 8) - 1; 
+	freeBlockHeader->size_status = (nextBlockFooter->size_status/8)*8 + 
+		(freeBlockHeader->size_status % 8) - 1; 
 	
 	hasBeenCoalescedBack++;
     }
-	
+    //I had to move some times two a second line as my code 
+    //ran past teh 80 widdth limit sorry if it is less readible
     //if the previous block is free you need to coalecse forwards 
     if ((freeBlockHeader->size_status % 8) < 2) {
 	//change the next block header so its previous bit is zero or freed
-	blockHeader *nextHeader = (void*)freeBlockHeader + (freeBlockHeader->size_status/8)*8;
+	blockHeader *nextHeader = (void*)freeBlockHeader + 
+		(freeBlockHeader->size_status/8)*8;
         //if the next block is already filled change the a bits so it relfects the alst free
 	if ( (nextHeader->size_status & 1) == 1) {
 	    nextHeader->size_status = ((nextHeader->size_status/8)*8) + 1;
@@ -255,16 +284,20 @@ int freeHeap(void *ptr) {
 	//gets the previous footer to get to prevous head
 	blockHeader *previousFooter = (void*)freeBlockHeader - 4;
         //gets previous head so coalesce the two blocks
-	blockHeader *previousHeader = (void*)previousFooter - previousFooter->size_status + 4;
+	blockHeader *previousHeader = (void*)previousFooter - 
+		previousFooter->size_status + 4;
         //updates the previous heads size status
-	previousHeader->size_status = previousHeader->size_status + ((freeBlockHeader->size_status/8)*8);
+	previousHeader->size_status = previousHeader->size_status + 
+		((freeBlockHeader->size_status/8)*8);
         //creats the new footer for the coalesd blocks
-	blockHeader *newFreeBlockFooter = (void*) previousHeader + ((previousHeader->size_status/8)*8) - 4;
+	blockHeader *newFreeBlockFooter = (void*) previousHeader + 
+		((previousHeader->size_status/8)*8) - 4;
 	//upddates that new footer
 	newFreeBlockFooter->size_status = ((previousHeader->size_status/8)*8);
-        //if we already coalesed backwards we only want to update the size_status once
+        //if we already coalesed backwards we only 
+	//want to update the size_status once
 	if(hasBeenCoalescedBack == 0) {
-	    freeBlockHeader->size_status = freeBlockHeader->size_status -1;  //change the currents block  a bits to be free
+	    freeBlockHeader->size_status = freeBlockHeader->size_status -1; 
 	}
     }
     

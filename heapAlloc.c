@@ -248,19 +248,21 @@ int freeHeap(void *ptr) {
     if ((freeBlockHeader->size_status % 8) < 2) {
 	//change the next block header so its previous bit is zero or freed
 	blockHeader *nextHeader = (void*)freeBlockHeader + (freeBlockHeader->size_status/8)*8;
-	//if (( (void*)nextHeader) < (void*)memoryEnd) {
-        if ( (nextHeader->size_status & 1) == 1) {
+        //if the next block is already filled change the a bits so it relfects the alst free
+	if ( (nextHeader->size_status & 1) == 1) {
 	    nextHeader->size_status = ((nextHeader->size_status/8)*8) + 1;
 	}
+	//gets the previous footer to get to prevous head
 	blockHeader *previousFooter = (void*)freeBlockHeader - 4;
-
+        //gets previous head so coalesce the two blocks
 	blockHeader *previousHeader = (void*)previousFooter - previousFooter->size_status + 4;
-
+        //updates the previous heads size status
 	previousHeader->size_status = previousHeader->size_status + ((freeBlockHeader->size_status/8)*8);
-
+        //creats the new footer for the coalesd blocks
 	blockHeader *newFreeBlockFooter = (void*) previousHeader + ((previousHeader->size_status/8)*8) - 4;
+	//upddates that new footer
 	newFreeBlockFooter->size_status = ((previousHeader->size_status/8)*8);
- 
+        //if we already coalesed backwards we only want to update the size_status once
 	if(hasBeenCoalescedBack == 0) {
 	    freeBlockHeader->size_status = freeBlockHeader->size_status -1;  //change the currents block  a bits to be free
 	}
